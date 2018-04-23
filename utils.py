@@ -26,7 +26,7 @@ def save_images(images, size, image_path, suffix=None, isOutput=False, filelist 
 
 def mirrorLeftToFull(images):
     width = images.shape[2]
-    leftImages = images[:,:,0:width/2,:]
+    leftImages = images[:,:,0:width//2,:]
     reversedLeftImages = leftImages[:,:,::-1,:]
     return np.concatenate((leftImages, reversedLeftImages), axis=2)
 

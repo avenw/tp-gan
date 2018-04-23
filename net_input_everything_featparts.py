@@ -45,10 +45,12 @@ class MultiPIE():
     """
     def __init__(self, datasplit='train', Random=True, LOAD_60_LABEL=False, MIRROR_TO_ONE_SIDE=True, RANDOM_VERIFY=False,
                  GENERATE_MASK=False, source='without90', testing = False):
-        self.dir = '/home/ruihuang/data/FS_aligned/'
-        self.csvpath = '/home/ruihuang/data/{}/{}.csv'
-        self.feat5ptDir = '/home/shu.zhang/ruihuang/data/FS_t5pt/'
-        self.test_dir = '/home/shu.zhang/ruihuang/data/testlist/FS/{}.csv'
+        self.dir = 'data'
+        source = 'train'
+        #self.dir = '/home/ruihuang/data/FS_aligned/'
+        self.csvpath = 'data/{}/{}.csv'
+        self.feat5ptDir = 'data'
+        self.test_dir = 'data/test/{}.csv'
         self.testing = testing
 
         self.split = datasplit
@@ -64,7 +66,7 @@ class MultiPIE():
 
         if not testing:
             split_f = self.csvpath.format(source, self.split)
-            split_f_test = self.csvpath.format(source, 'test')
+            split_f_test = self.csvpath.format('test', 'test')
             self.indices = open(split_f, 'r').read().splitlines()
             self.indices_test = open(split_f_test, 'r').read().splitlines()
             self.size = len(self.indices)
@@ -119,7 +121,7 @@ class MultiPIE():
                         break
                     j += 1
             print(j, end=' ')
-            images[i, ...], feats = self.load_image(self.indices_test[j % len(self.indices_test)])
+            images[i, ...], feats = self.load_image('/test/test_img/' + self.indices_test[j % len(self.indices_test)])
             eyel[i,...] = feats[1]
             eyer[i,...] = feats[2]
             nose[i,...] = feats[3]
@@ -127,7 +129,7 @@ class MultiPIE():
             filename = self.indices_test[j % len(self.indices_test)]
             filenames.append(filename)
             if not self.testing:
-                labels[i,...], _, leyel[i,...], leyer[i,...], lnose[i,...], lmouth[i, ...] = self.load_label_mask(filename)
+                labels[i,...], _, leyel[i,...], leyer[i,...], lnose[i,...], lmouth[i, ...] = self.load_label_mask('/test/test_img/' + filename)
                 identity = int(filename[0:3])
                 idenlabels[i] = identity
             j += 1
@@ -190,9 +192,9 @@ class MultiPIE():
                         if pose <= imageRange and pose >= 45:
                             break
                     self.updateidx()
-            images[i, ...], feats = self.load_image(self.indices[self.idx])
+            images[i, ...], feats = self.load_image('/train/TP-GAN-MultiPIE-test/' + self.indices[self.idx])
             filename = self.indices[self.idx]
-            labels[i,...], _, leyel[i,...], leyer[i,...], lnose[i,...], lmouth[i, ...] = self.load_label_mask(filename)
+            labels[i,...], _, leyel[i,...], leyer[i,...], lnose[i,...], lmouth[i, ...] = self.load_label_mask('/train/TP-GAN-MultiPIE-test/' + filename)
 
             pose = abs(self.findPose(filename))
             poselabels[i] = int(pose/15)
@@ -232,6 +234,7 @@ class MultiPIE():
     def load_label_mask(self, filename, labelnum=-1):
 
         _, labelname = self.findSameIllumCodeLabelpath(filename)
+        #print('filename=', filename, '\nlabelname=', labelname)
         im = Image.open(self.dir + labelname)
         if self.MIRROR_TO_ONE_SIDE and self.findPose(labelname) < 0:
             im = im.transpose(Image.FLIP_LEFT_RIGHT)
@@ -358,7 +361,7 @@ class MultiPIE():
         #crop four parts
         trans_points = np.empty([5,2],dtype=np.int32)
         if True:#not label:
-            featpath = self.feat5ptDir + filename[0:-15] + '_trans.5pt'
+            featpath = self.feat5ptDir + filename[0:-4] + '.5pt'
             #print(filename)
             with open(featpath, 'r') as csvfile:
                 reader = csv.reader(csvfile, delimiter=' ')

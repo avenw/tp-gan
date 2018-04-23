@@ -54,11 +54,18 @@ if WITHOUT_CODEMAP:
 else:
     CHANNEL = 6
 
+if "concat_v2" in dir(tf):
+    def concat(tensors, axis, *args, **kwargs):
+        return concat(tensors, axis, *args, **kwargs)
+else:
+    def concat(tensors, axis, *args, **kwargs):
+        return tf.concat(tensors, axis, *args, **kwargs)
+    
 flags = tf.app.flags
 flags.DEFINE_integer("epoch", 250, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate", 1e-4, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.9, "Momentum term of adam [0.5]")
-flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
+flags.DEFINE_integer("train_size", 200, "The size of train images [np.inf]")
 flags.DEFINE_integer("batch_size", 20, "The size of batch images [64]")
 flags.DEFINE_integer("image_size", 128, "The size of image to use (will be center cropped) [108]")
 flags.DEFINE_integer("output_size", 128, "The size of the output images to produce [64]")
@@ -73,7 +80,7 @@ FLAGS = flags.FLAGS
 
 class DCGAN(object):
     def __init__(self, sess, image_size=128, is_crop=True,
-                 batch_size=10, sample_size = 100, output_size=128,
+                 batch_size=20, sample_size = 100, output_size=128,
                  y_dim=None, z_dim=100, gf_dim=64, df_dim=64,
                  gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='MultiPIE',
                  checkpoint_dir=None, sample_dir=None):
@@ -95,7 +102,7 @@ class DCGAN(object):
         self.sample_interval = 150
         self.sess = sess
         self.is_grayscale = (c_dim == 1)
-        self.batch_size = 10
+        self.batch_size = batch_size
         self.sample_run_num = 15
         self.testing = False
         self.testingphase = 'FS'
@@ -115,12 +122,12 @@ class DCGAN(object):
 
         self.gfc_dim = gfc_dim
         self.dfc_dim = dfc_dim
-        self.z_dim = 100
+        self.z_dim = z_dim
         self.c_dim = c_dim
 
         # batch normalization : deals with poor initialization helps gradient flow
         random.seed()
-        self.DeepFacePath = '/home/shu.zhang/ruihuang/data/DeepFace.pickle'
+        self.DeepFacePath = 'DeepFace168.pickle'
         self.dataset_name = dataset_name
         self.checkpoint_dir = checkpoint_dir
         self.loadDeepFace(self.DeepFacePath)
@@ -131,7 +138,7 @@ class DCGAN(object):
         #hold all four
         #Note: not true, if WITHOUT_CODEMAP is true, then here is pure images without codemap and 3 channels
         #mirror concatenate
-        mc = lambda left : tf.concat_v2([left, left[:,:,::-1,:]], 3)
+        mc = lambda left : concat([left, left[:,:,::-1,:]], 3)
         self.images_with_code = tf.placeholder(tf.float32, [self.batch_size] + [self.output_size, self.output_size, CHANNEL], name='images_with_code')
         self.sample_images = tf.placeholder(tf.float32, [self.test_batch_size] + [self.output_size, self.output_size, CHANNEL], name='sample_images')
 
@@ -179,12 +186,12 @@ class DCGAN(object):
 
         #feats contains: self.feat128, self.feat64, self.feat32, self.feat16, self.feat8, self.feat
         self.G_eyel,self.c_eyel = self.partRotator(self.eyel, "PartRotator_eyel")
-        self.G_eyer,self.c_eyer = self.partRotator(tf.concat_v2([self.eyer, self.eyel], axis=3), "PartRotator_eyer")
+        self.G_eyer,self.c_eyer = self.partRotator(concat([self.eyer, self.eyel], axis=3), "PartRotator_eyer")
         self.G_nose,self.c_nose = self.partRotator(self.nose, "PartRotator_nose")
         self.G_mouth,self.c_mouth = self.partRotator(self.mouth, "PartRotator_mouth")
 
         self.G_eyel_sam, self.c_eyel_sam = self.partRotator(self.eyel_sam, "PartRotator_eyel", reuse=True)
-        self.G_eyer_sam, self.c_eyer_sam = self.partRotator(tf.concat_v2([self.eyer_sam, self.eyel_sam],axis=3), "PartRotator_eyer", reuse=True)
+        self.G_eyer_sam, self.c_eyer_sam = self.partRotator(concat([self.eyer_sam, self.eyel_sam],axis=3), "PartRotator_eyer", reuse=True)
         self.G_nose_sam, self.c_nose_sam = self.partRotator(self.nose_sam, "PartRotator_nose", reuse=True)
         self.G_mouth_sam, self.c_mouth_sam = self.partRotator(self.mouth_sam, "PartRotator_mouth", reuse=True)
 
@@ -238,13 +245,13 @@ class DCGAN(object):
         # self.d_loss_real = tf.reduce_mean(self.D_logits)
         # self.d_loss_fake = -tf.reduce_mean(self.D_logits_)
         # self.g_loss_adver = -tf.reduce_mean(self.D_logits_)
-        self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(self.D_logits, tf.ones_like(self.D) * 0.9))
-        self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
-        self.g_loss_adver = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_) * 0.9))
+        self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits, labels=tf.ones_like(self.D) * 0.9))
+        self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits_, labels=tf.zeros_like(self.D_)))
+        self.g_loss_adver = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits_, labels=tf.ones_like(self.D_) * 0.9))
 
         #self.mark_regression_loss = tf.reduce_mean(tf.square(tf.abs(self.landmarklabels-self.Glandmark)))
         #self.poseloss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(self.poselogits, self.poselabels))
-        self.idenloss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(self.identitylogits, self.idenlabels))
+        self.idenloss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.identitylogits, labels=self.idenlabels))
 
         self.eyel_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_eyel - self.eyel_label), 1), 1))
         self.eyer_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_eyer - self.eyer_label), 1), 1))
@@ -252,7 +259,7 @@ class DCGAN(object):
         self.mouth_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_mouth - self.mouth_label), 1), 1))
         #rotation L1 / L2 loss in g_loss
         # one8 = tf.ones([1,8,4,1],tf.float32)
-        # mask8 = tf.concat_v2([one8, one8], 2)
+        # mask8 = concat([one8, one8], 2)
         # mask16 = tf.image.resize_nearest_neighbor(mask8, size=[16, 16])
         # mask32 = tf.image.resize_nearest_neighbor(mask8, size=[32, 32])
         # mask64 = tf.image.resize_nearest_neighbor(mask8, size=[64, 64])
@@ -375,8 +382,9 @@ class DCGAN(object):
             print("start training!")
             for epoch in xrange(config.epoch):
                 #data = glob(os.path.join("./data", config.dataset, "*.jpg"))
-                batch_idxs = min(data.size, config.train_size) // self.batch_size
-
+                batch_idxs = min(data.size, config.train_size)
+                #print('data.size=', data.size, 'config.train_size=', config.train_size, 'batch_idxs=', batch_idxs)
+                
                 for idx in xrange(0, batch_idxs):
                     #load data from MultiPIE
                     batch_images_with_code, batch_labels, batch_masks, verify_images, verify_labels, \
@@ -555,7 +563,7 @@ class DCGAN(object):
                                 initializer=init)
             conv = tf.nn.conv2d(images, w, strides=[1, 1, 1, 1], padding='SAME')
             #conv = conv * 2
-            return tf.concat_v2([images, conv], 3)
+            return concat([images, conv], 3)
 
     def FeaturePredict(self, featvec, reuse=False):
         with tf.variable_scope("FeaturePredict") as scope:
@@ -593,36 +601,36 @@ class DCGAN(object):
         with tf.variable_scope(name) as scope:
             if reuse:
                 scope.reuse_variables()
-            initial_all = tf.concat_v2([featvec, self.z], 1)
+            initial_all = concat([featvec, self.z], 1)
             initial_8 = relu(tf.reshape(linear(initial_all, output_size=8*8*self.gf_dim,scope='initial8', bias_start=0.1, with_w=True)[0],
                                         [batch_size, 8, 8, self.gf_dim]))
             initial_32 = relu(deconv2d(initial_8, [batch_size, 32, 32, self.gf_dim // 2], d_h=4, d_w=4, name="initial32"))
             initial_64 = relu(deconv2d(initial_32, [batch_size, 64, 64, self.gf_dim // 4], name="initial64"))
             initial_128 = relu(deconv2d(initial_64, [batch_size, 128, 128, self.gf_dim // 8], name="initial128"))
 
-            before_select8 = resblock(tf.concat_v2([initial_8, feat8], 3), k_h=2, k_w=2, name = "select8_res_1")
+            before_select8 = resblock(concat([initial_8, feat8], 3), k_h=2, k_w=2, name = "select8_res_1")
             #selection T module
             reconstruct8 = resblock(resblock(before_select8, k_h=2, k_w=2, name="dec8_res1"), k_h=2, k_w=2, name="dec8_res2")
 
             #selection F module
             reconstruct16_deconv = relu(batch_norm(deconv2d(reconstruct8, [batch_size, 16, 16, self.gf_dim*8], name="g_deconv16"), name="g_bnd1"))
             before_select16 = resblock(feat16, name = "select16_res_1")
-            reconstruct16 = resblock(resblock(tf.concat_v2([reconstruct16_deconv, before_select16], 3), name="dec16_res1"), name="dec16_res2")
+            reconstruct16 = resblock(resblock(concat([reconstruct16_deconv, before_select16], 3), name="dec16_res1"), name="dec16_res2")
 
             reconstruct32_deconv = relu(batch_norm(deconv2d(reconstruct16, [batch_size, 32, 32, self.gf_dim*4], name="g_deconv32"), name="g_bnd2"))
-            before_select32 = resblock(tf.concat_v2([feat32, g32_images_with_code, initial_32], 3), name = "select32_res_1")
-            reconstruct32 = resblock(resblock(tf.concat_v2([reconstruct32_deconv, before_select32], 3), name="dec32_res1"), name="dec32_res2")
+            before_select32 = resblock(concat([feat32, g32_images_with_code, initial_32], 3), name = "select32_res_1")
+            reconstruct32 = resblock(resblock(concat([reconstruct32_deconv, before_select32], 3), name="dec32_res1"), name="dec32_res2")
             img32 = tf.nn.tanh(conv2d(reconstruct32, 3, d_h=1, d_w=1, name="check_img32"))
 
             reconstruct64_deconv = relu(batch_norm(deconv2d(reconstruct32, [batch_size, 64, 64, self.gf_dim*2], name="g_deconv64"), name="g_bnd3"))
-            before_select64 = resblock(tf.concat_v2([feat64, g64_images_with_code, initial_64], 3), k_h=5, k_w=5, name = "select64_res_1")
-            reconstruct64 = resblock(resblock(tf.concat_v2([reconstruct64_deconv, before_select64,
+            before_select64 = resblock(concat([feat64, g64_images_with_code, initial_64], 3), k_h=5, k_w=5, name = "select64_res_1")
+            reconstruct64 = resblock(resblock(concat([reconstruct64_deconv, before_select64,
                                                             tf.image.resize_bilinear(img32, [64,64])], 3), name="dec64_res1"), name="dec64_res2")
             img64 = tf.nn.tanh(conv2d(reconstruct64, 3, d_h=1, d_w=1, name="check_img64"))
 
             reconstruct128_deconv = relu(batch_norm(deconv2d(reconstruct64, [batch_size, 128, 128, self.gf_dim], name="g_deconv128"), name="g_bnd4"))
-            before_select128 = resblock(tf.concat_v2([feat128, initial_128, g128_images_with_code],3), k_h = 7, k_w = 7, name = "select128_res_1")
-            reconstruct128 = resblock(tf.concat_v2([reconstruct128_deconv, before_select128,
+            before_select128 = resblock(concat([feat128, initial_128, g128_images_with_code],3), k_h = 7, k_w = 7, name = "select128_res_1")
+            reconstruct128 = resblock(concat([reconstruct128_deconv, before_select128,
                                                     self.partCombiner(eyel, eyer, nose, mouth),
                                                     self.partCombiner(c_eyel, c_eyer, c_nose, c_mouth),
                                                     tf.image.resize_bilinear(img64, [128,128])], 3), k_h=5, k_w=5, name="dec128_res1")
@@ -689,15 +697,15 @@ class DCGAN(object):
             shape = c3r2.get_shape().as_list()
             d1 = lrelu(batch_norm(deconv2d(c3r2, [shape[0], shape[1] * 2, shape[2] * 2, self.gf_dim*4], name="p_deconv1"), name="p_bnd1"))
             #up1
-            after_select_d1 = lrelu(batch_norm(conv2d(tf.concat_v2([d1, c2r], axis=3), self.gf_dim*4, d_h=1, d_w=1, name="p_deconv1_s"),name="p_bnd1_s"))
+            after_select_d1 = lrelu(batch_norm(conv2d(concat([d1, c2r], axis=3), self.gf_dim*4, d_h=1, d_w=1, name="p_deconv1_s"),name="p_bnd1_s"))
             d1_r = resblock(after_select_d1, name="p_deconv1_res")
             d2 = lrelu(batch_norm(deconv2d(d1_r, [shape[0], shape[1] * 4, shape[2] * 4, self.gf_dim*2], name="p_deconv2"), name="p_bnd2"))
             #up2
-            after_select_d2 = lrelu(batch_norm(conv2d(tf.concat_v2([d2, c1r], axis=3), self.gf_dim*2, d_h=1, d_w=1, name="p_deconv2_s"),name="p_bnd2_s"))
+            after_select_d2 = lrelu(batch_norm(conv2d(concat([d2, c1r], axis=3), self.gf_dim*2, d_h=1, d_w=1, name="p_deconv2_s"),name="p_bnd2_s"))
             d2_r = resblock(after_select_d2, name="p_deconv2_res")
             d3 = lrelu(batch_norm(deconv2d(d2_r, [shape[0], shape[1] * 8, shape[2] * 8, self.gf_dim], name="p_deconv3"), name="p_bnd3"))
             #up3
-            after_select_d3 = lrelu(batch_norm(conv2d(tf.concat_v2([d3, c0r], axis=3), self.gf_dim, d_h=1, d_w=1, name="p_deconv3_s"),name="p_bnd3_s"))
+            after_select_d3 = lrelu(batch_norm(conv2d(concat([d3, c0r], axis=3), self.gf_dim, d_h=1, d_w=1, name="p_deconv3_s"),name="p_bnd3_s"))
             d3_r = resblock(after_select_d3, name="p_deconv3_res")
 
             check_part = tf.nn.tanh(conv2d(d3_r, 3, d_h=1, d_w=1, name="p_check"))
@@ -787,8 +795,9 @@ class DCGAN(object):
         if not os.path.isfile(DeepFacePath):
             logging.error(("File '%s' not found. "), DeepFacePath)
             sys.exit(1)
-        with open(DeepFacePath,'r') as file:
+        with open(DeepFacePath,'rb') as file:
             self.data_dict = pickle.load(file)
+            #self.data_dict = pickle.load(file, encoding='iso-8859-1')
         print("Deep Face pickle data file loaded")
 
     def FeatureExtractDeepFace(self, images, name = "FeatureExtractDeepFace", reuse=False):
@@ -799,158 +808,158 @@ class DCGAN(object):
 
             conv1 = self._conv_layer(images, name='conv1')
             print(3, type(3))
-            slice1_1, slice1_2 = tf.split(3, 2, conv1)
+            slice1_1, slice1_2 = tf.split(conv1, 2, 3)
             eltwise1 = tf.maximum(slice1_1, slice1_2)
             pool1 = tf.nn.max_pool(eltwise1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
                                    padding='SAME')
             conv2_1 = self._conv_layer(pool1, name='conv2_1')
-            slice2_1_1, slice2_1_2 = tf.split(3, 2, conv2_1)
+            slice2_1_1, slice2_1_2 = tf.split(conv2_1, 2, 3)
             eltwise2_1 = tf.maximum(slice2_1_1, slice2_1_2)
 
             conv2_2 = self._conv_layer(eltwise2_1, name='conv2_2')
-            slice2_2_1, slice2_2_2 = tf.split(3, 2, conv2_2)
+            slice2_2_1, slice2_2_2 = tf.split(conv2_2, 2, 3)
             eltwise2_2 = tf.maximum(slice2_2_1, slice2_2_2)
 
             res2_1 = pool1 + eltwise2_2
 
             conv2a = self._conv_layer(res2_1, name='conv2a')
-            slice2a_1, slice2a_2 = tf.split(3, 2, conv2a)
+            slice2a_1, slice2a_2 = tf.split(conv2a, 2, 3)
             eltwise2a = tf.maximum(slice2a_1, slice2a_2)
 
             conv2 = self._conv_layer(eltwise2a, name='conv2')
-            slice2_1, slice2_2 = tf.split(3, 2, conv2)
+            slice2_1, slice2_2 = tf.split(conv2, 2, 3)
             eltwise2 = tf.maximum(slice2_1, slice2_2)
 
             pool2 = tf.nn.max_pool(eltwise2, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
                                    padding='SAME')
 
             conv3_1 = self._conv_layer(pool2, name='conv3_1')
-            slice3_1_1, slice3_1_2 = tf.split(3, 2, conv3_1)
+            slice3_1_1, slice3_1_2 = tf.split(conv3_1, 2, 3)
             eltwise3_1 = tf.maximum(slice3_1_1, slice3_1_2)
 
             conv3_2 = self._conv_layer(eltwise3_1, name='conv3_2')
-            slice3_2_1, slice3_2_2 = tf.split(3, 2, conv3_2)
+            slice3_2_1, slice3_2_2 = tf.split(conv3_2, 2, 3)
             eltwise3_2 = tf.maximum(slice3_2_1, slice3_2_2)
 
             res3_1 = pool2 + eltwise3_2
 
             conv3_3 = self._conv_layer(res3_1, name='conv3_3')
-            slice3_3_1, slice3_3_2 = tf.split(3, 2, conv3_3)
+            slice3_3_1, slice3_3_2 = tf.split(conv3_3, 2, 3)
             eltwise3_3 = tf.maximum(slice3_3_1, slice3_3_2)
 
             conv3_4 = self._conv_layer(eltwise3_3, name='conv3_4')
-            slice3_4_1, slice3_4_2 = tf.split(3, 2, conv3_4)
+            slice3_4_1, slice3_4_2 = tf.split(conv3_4, 2, 3)
             eltwise3_4 = tf.maximum(slice3_4_1, slice3_4_2)
 
             res3_2 = res3_1 + eltwise3_4
 
             conv3a = self._conv_layer(res3_2, name='conv3a')
-            slice3a_1, slice3a_2 = tf.split(3, 2, conv3a)
+            slice3a_1, slice3a_2 = tf.split(conv3a, 2, 3)
             eltwise3a = tf.maximum(slice3a_1, slice3a_2)
 
             conv3 = self._conv_layer(eltwise3a, name='conv3')
-            slice3_1, slice3_2 = tf.split(3, 2, conv3)
+            slice3_1, slice3_2 = tf.split(conv3, 2, 3)
             eltwise3 = tf.maximum(slice3_1, slice3_2)
 
             pool3 = tf.nn.max_pool(eltwise3, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
                                    padding='SAME')
 
             conv4_1 = self._conv_layer(pool3, name='conv4_1')
-            slice4_1_1, slice4_1_2 = tf.split(3, 2, conv4_1)
+            slice4_1_1, slice4_1_2 = tf.split(conv4_1, 2, 3)
             eltwise4_1 = tf.maximum(slice4_1_1, slice4_1_2)
 
             conv4_2 = self._conv_layer(eltwise4_1, name='conv4_2')
-            slice4_2_1, slice4_2_2 = tf.split(3, 2, conv4_2)
+            slice4_2_1, slice4_2_2 = tf.split(conv4_2, 2, 3)
             eltwise4_2 = tf.maximum(slice4_2_1, slice4_2_2)
 
             res4_1 = pool3 + eltwise4_2
 
             conv4_3 = self._conv_layer(res4_1, name='conv4_3')
-            slice4_3_1, slice4_3_2 = tf.split(3, 2, conv4_3)
+            slice4_3_1, slice4_3_2 = tf.split(conv4_3, 2, 3)
             eltwise4_3 = tf.maximum(slice4_3_1, slice4_3_2)
 
             conv4_4 = self._conv_layer(eltwise4_3, name='conv4_4')
-            slice4_4_1, slice4_4_2 = tf.split(3, 2, conv4_4)
+            slice4_4_1, slice4_4_2 = tf.split(conv4_4, 2, 3)
             eltwise4_4 = tf.maximum(slice4_4_1, slice4_4_2)
 
             res4_2 = res4_1 + eltwise4_4
 
             conv4_5 = self._conv_layer(res4_2, name='conv4_5')
-            slice4_5_1, slice4_5_2 = tf.split(3, 2, conv4_5)
+            slice4_5_1, slice4_5_2 = tf.split(conv4_5, 2, 3)
             eltwise4_5 = tf.maximum(slice4_5_1, slice4_5_2)
 
             conv4_6 = self._conv_layer(eltwise4_5, name='conv4_6')
-            slice4_6_1, slice4_6_2 = tf.split(3, 2, conv4_6)
+            slice4_6_1, slice4_6_2 = tf.split(conv4_6, 2, 3)
             eltwise4_6 = tf.maximum(slice4_6_1, slice4_6_2)
 
             res4_3 = res4_2 + eltwise4_6
 
             conv4a = self._conv_layer(res4_3, name='conv4a')
-            slice4a_1, slice4a_2 = tf.split(3, 2, conv4a)
+            slice4a_1, slice4a_2 = tf.split(conv4a, 2, 3)
             eltwise4a = tf.maximum(slice4a_1, slice4a_2)
 
             conv4 = self._conv_layer(eltwise4a, name='conv4')
-            slice4_1, slice4_2 = tf.split(3, 2, conv4)
+            slice4_1, slice4_2 = tf.split(conv4, 2, 3)
             eltwise4 = tf.maximum(slice4_1, slice4_2)
 
             conv5_1 = self._conv_layer(eltwise4, name='conv5_1')
-            slice5_1_1, slice5_1_2 = tf.split(3, 2, conv5_1)
+            slice5_1_1, slice5_1_2 = tf.split(conv5_1, 2, 3)
             eltwise5_1 = tf.maximum(slice5_1_1, slice5_1_2)
 
             conv5_2 = self._conv_layer(eltwise5_1, name='conv5_2')
-            slice5_2_1, slice5_2_2 = tf.split(3, 2, conv5_2)
+            slice5_2_1, slice5_2_2 = tf.split(conv5_2, 2, 3)
             eltwise5_2 = tf.maximum(slice5_2_1, slice5_2_2)
 
             res5_1 = eltwise4 + eltwise5_2
 
             conv5_3 = self._conv_layer(res5_1, name='conv5_3')
-            slice5_3_1, slice5_3_2 = tf.split(3, 2, conv5_3)
+            slice5_3_1, slice5_3_2 = tf.split(conv5_3, 2, 3)
             eltwise5_3 = tf.maximum(slice5_3_1, slice5_3_2)
 
             conv5_4 = self._conv_layer(eltwise5_3, name='conv5_4')
-            slice5_4_1, slice5_4_2 = tf.split(3, 2, conv5_4)
+            slice5_4_1, slice5_4_2 = tf.split(conv5_4, 2, 3)
             eltwise5_4 = tf.maximum(slice5_4_1, slice5_4_2)
 
             res5_2 = res5_1 + eltwise5_4
 
             conv5_5 = self._conv_layer(res5_2, name='conv5_5')
-            slice5_5_1, slice5_5_2 = tf.split(3, 2, conv5_5)
+            slice5_5_1, slice5_5_2 = tf.split(conv5_5, 2, 3)
             eltwise5_5 = tf.maximum(slice5_5_1, slice5_5_2)
 
             conv5_6 = self._conv_layer(eltwise5_5, name='conv5_6')
-            slice5_6_1, slice5_6_2 = tf.split(3, 2, conv5_6)
+            slice5_6_1, slice5_6_2 = tf.split(conv5_6, 2, 3)
             eltwise5_6 = tf.maximum(slice5_6_1, slice5_6_2)
 
             res5_3 = res5_2 + eltwise5_6
 
             conv5_7 = self._conv_layer(res5_3, name='conv5_7')
-            slice5_7_1, slice5_7_2 = tf.split(3, 2, conv5_7)
+            slice5_7_1, slice5_7_2 = tf.split(conv5_7, 2, 3)
             eltwise5_7 = tf.maximum(slice5_7_1, slice5_7_2)
 
             conv5_8 = self._conv_layer(eltwise5_7, name='conv5_8')
-            slice5_8_1, slice5_8_2 = tf.split(3, 2, conv5_8)
+            slice5_8_1, slice5_8_2 = tf.split(conv5_8, 2, 3)
             eltwise5_8 = tf.maximum(slice5_8_1, slice5_8_2)
 
             res5_4 = res5_3 + eltwise5_8
 
             conv5a = self._conv_layer(res5_4, name='conv5a')
-            slice5a_1, slice5a_2 = tf.split(3, 2, conv5a)
+            slice5a_1, slice5a_2 = tf.split(conv5a, 2, 3)
             eltwise5a = tf.maximum(slice5a_1, slice5a_2)
 
             conv5 = self._conv_layer(eltwise5a, name='conv5')
-            slice5_1, slice5_2 = tf.split(3, 2, conv5)
+            slice5_1, slice5_2 = tf.split(conv5, 2, 3)
             eltwise5 = tf.maximum(slice5_1, slice5_2)
             pool4 = tf.nn.max_pool(eltwise5, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
                                    padding='SAME')
             pool4_transposed = tf.transpose(pool4, perm=[0, 3, 1, 2])
             # pool4_reshaped = tf.reshape(pool4_transposed, shape=[tf.shape(pool4)[0],-1])
             fc1 = self._fc_layer(pool4_transposed, name="fc1")
-            slice_fc1_1, slice_fc1_2 = tf.split(1, 2, fc1)
+            slice_fc1_1, slice_fc1_2 = tf.split(fc1, 2, 1)
             eltwise_fc1 = tf.maximum(slice_fc1_1, slice_fc1_2)
 
             return eltwise1, eltwise2, eltwise3, eltwise5, pool4, eltwise_fc1
         #DEEPFACE NET ENDS---
-
+    
         #DEEPFACE OPS BEGINS---
     def _conv_layer(self, input_, output_dim=96,
                     k_h=3, k_w=3, d_h=1, d_w=1, stddev=0.02,
@@ -977,6 +986,9 @@ class DCGAN(object):
         init = tf.constant_initializer(value=self.data_dict[name][0],
                                        dtype=tf.float32)
         shape = self.data_dict[name][0].shape
+        #print('Layer name: %s' % name)
+        #print('Layer shape: %s' % str(shape))
+
         var = tf.get_variable(name="filter", initializer=init, shape=shape)
         return var
 
