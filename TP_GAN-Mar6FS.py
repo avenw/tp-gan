@@ -796,8 +796,8 @@ class DCGAN(object):
             logging.error(("File '%s' not found. "), DeepFacePath)
             sys.exit(1)
         with open(DeepFacePath,'rb') as file:
-            self.data_dict = pickle.load(file)
-            #self.data_dict = pickle.load(file, encoding='iso-8859-1')
+            #self.data_dict = pickle.load(file)
+            self.data_dict = pickle.load(file, encoding='iso-8859-1')
         print("Deep Face pickle data file loaded")
 
     def FeatureExtractDeepFace(self, images, name = "FeatureExtractDeepFace", reuse=False):

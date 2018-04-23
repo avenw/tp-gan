@@ -180,8 +180,8 @@ def linear(input_, output_size, scope=None, stddev=0.02, bias_start=0.0, with_w=
             return tf.matmul(input_, matrix) + bias
 def symL1(img):
     width = img.get_shape().as_list()[2]
-    right = img[:,:,width/2:,:]
-    left = tf.stop_gradient(img[:,:,0:width/2,:])
+    right = img[:,:,width//2:,:]
+    left = tf.stop_gradient(img[:,:,0:width//2,:])
     return tf.abs(left - right[:,:,::-1,:])
 
 def total_variation(images, name=None):
