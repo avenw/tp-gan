@@ -569,7 +569,7 @@ class DCGAN(object):
         with tf.variable_scope("FeaturePredict") as scope:
             if reuse:
                 scope.reuse_variables()
-            identitylogits = linear(Dropout(featvec, keep_prob=0.3, is_training= not self.testing), output_size=340, scope='idenLinear', bias_start=0.1, with_w=True)[0]
+            identitylogits = linear(Dropout(featvec, keep_prob=0.3, is_training= not self.testing), output_size=344, scope='idenLinear', bias_start=0.1, with_w=True)[0]
             return None, identitylogits, None
 
     def discriminatorLocal(self, images, reuse=False):
@@ -796,8 +796,10 @@ class DCGAN(object):
             logging.error(("File '%s' not found. "), DeepFacePath)
             sys.exit(1)
         with open(DeepFacePath,'rb') as file:
-            #self.data_dict = pickle.load(file)
-            self.data_dict = pickle.load(file, encoding='iso-8859-1')
+            if (sys.version_info.major == 2):
+                self.data_dict = pickle.load(file)
+            else:
+                self.data_dict = pickle.load(file, encoding='iso-8859-1')
         print("Deep Face pickle data file loaded")
 
     def FeatureExtractDeepFace(self, images, name = "FeatureExtractDeepFace", reuse=False):
