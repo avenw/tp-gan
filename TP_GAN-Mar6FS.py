@@ -569,7 +569,7 @@ class DCGAN(object):
         with tf.variable_scope("FeaturePredict") as scope:
             if reuse:
                 scope.reuse_variables()
-            identitylogits = linear(Dropout(featvec, keep_prob=0.3, is_training= not self.testing), output_size=344, scope='idenLinear', bias_start=0.1, with_w=True)[0]
+            identitylogits = linear(Dropout(featvec, keep_prob=0.3, is_training= not self.testing), output_size=360, scope='idenLinear', bias_start=0.1, with_w=True)[0]
             return None, identitylogits, None
 
     def discriminatorLocal(self, images, reuse=False):
