@@ -88,7 +88,6 @@ class MultiPIE():
 
     def test_batch(self, test_batch_size=100,Random = True, Pose = -1):
         #test_batch_size = min(test_batch_size, len(self.indices_test))
-        test_batch_size = min(test_batch_size, 100)
         images = np.empty([test_batch_size, IMAGE_SIZE, IMAGE_SIZE, 3])
         eyel = np.empty([test_batch_size, EYE_H, EYE_W, 3], dtype=np.float32)
         eyer = np.empty([test_batch_size, EYE_H, EYE_W, 3], dtype=np.float32)

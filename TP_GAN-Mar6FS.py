@@ -1046,7 +1046,13 @@ def main(_):
         os.makedirs(FLAGS.checkpoint_dir)
     if not os.path.exists(FLAGS.sample_dir):
         os.makedirs(FLAGS.sample_dir)
-
+    
+    #config = tf.ConfigProto()
+    #config.gpu_options.allocator_type ='BFC'
+    #config.gpu_options.per_process_gpu_memory_fraction=1.0
+    #config.gpu_options.allow_growth = True
+    #gpu_options = tf.GPUOptions(allow_growth=True)
+    #with tf.Session(config=config) as sess:
     with tf.Session() as sess:
         dcgan = DCGAN(sess,
                       image_size=FLAGS.image_size,
