@@ -79,7 +79,7 @@ class MultiPIE():
                 random.seed(self.seed)
                 self.idx = random.randint(0, len(self.indices)-1)
         else:#only load test images for a separate list file.
-            split_f_test = self.test_dir.format(source)
+            split_f_test = self.test_dir.format('test')
             self.indices_test = open(split_f_test, 'r').read().splitlines()
             self.size = 0
             self.test_size = len(self.indices_test)
@@ -357,6 +357,17 @@ class MultiPIE():
         #get 01_0 like string
         return self.cameraPositions[camPos][0]
 
+    def check_crop_end(self, crop_end, max_size, window_size):
+        if crop_end > max_size:
+            crop_end = max_size
+
+        crop_start = crop_end - window_size
+        if crop_start < 0:
+            crop_start = 0
+            crop_end = crop_start + window_size 
+
+        return crop_end, crop_start
+
     def GetFeatureParts(self, img_resize, filename, label=False):
         #crop four parts
         trans_points = np.empty([5,2],dtype=np.int32)
@@ -368,11 +379,20 @@ class MultiPIE():
                 for ind,row in enumerate(reader):
                     trans_points[ind,:] = row
         #print(trans_points)
+        max_size = 128
         eyel_crop = np.zeros([EYE_H,EYE_W,3], dtype=np.float32);
         crop_y = int(trans_points[0,1] - EYE_H / 2);
         crop_y_end = crop_y + EYE_H;
         crop_x = int(trans_points[0,0] - EYE_W / 2);
         crop_x_end = crop_x + EYE_W;
+        crop_y_end, crop_y = self.check_crop_end(crop_y_end, max_size, EYE_H)
+        crop_x_end, crop_x = self.check_crop_end(crop_x_end, max_size, EYE_W)
+        #eyel_crop[...] = img_resize[crop_y:crop_y_end,crop_x:crop_x_end,:];
+        #print('featpath=', featpath)
+        #print('trans_points=', trans_points)
+        #print('file ', filename, '\ncrop_y_end:cropy=', crop_y_end, ':', crop_y)
+        #print('crop_x_end:crop_x=', crop_x_end, ':', crop_x)
+        #print('img_resize shape=', img_resize.shape)
         eyel_crop[...] = img_resize[crop_y:crop_y_end,crop_x:crop_x_end,:];
 
         eyer_crop = np.zeros([EYE_H,EYE_W,3], dtype=np.float32);
@@ -380,6 +400,9 @@ class MultiPIE():
         crop_y_end = crop_y + EYE_H;
         crop_x = int(trans_points[1,0] - EYE_W / 2);
         crop_x_end = crop_x + EYE_W;
+        crop_y_end, crop_y = self.check_crop_end(crop_y_end, max_size, EYE_H)
+        crop_x_end, crop_x = self.check_crop_end(crop_x_end, max_size, EYE_W)
+
         eyer_crop[...] = img_resize[crop_y:crop_y_end,crop_x:crop_x_end,:];
 
 
@@ -388,6 +411,10 @@ class MultiPIE():
         crop_y_end = crop_y + MOUTH_H;
         crop_x = int((trans_points[3,0] + trans_points[4,0]) // 2 - MOUTH_W / 2);
         crop_x_end = crop_x + MOUTH_W;
+        crop_y_end, crop_y = self.check_crop_end(crop_y_end, max_size, MOUTH_H)
+        crop_x_end, crop_x = self.check_crop_end(crop_x_end, max_size, MOUTH_W)
+
+
         month_crop[...] = img_resize[crop_y:crop_y_end,crop_x:crop_x_end,:];
 
 
@@ -433,6 +460,9 @@ class MultiPIE():
         crop_x = int(crop_x)
         crop_y = crop_y_end - NOSE_H;
         crop_x_end = crop_x + NOSE_W;
+        crop_y_end, crop_y = self.check_crop_end(crop_y_end, max_size, NOSE_H)
+        crop_x_end, crop_x = self.check_crop_end(crop_x_end, max_size, NOSE_W)
+
         #import pdb; pdb.set_trace()
         nose_crop[...] = img_resize[crop_y:crop_y_end,crop_x:crop_x_end,:];
 

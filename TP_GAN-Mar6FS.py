@@ -110,7 +110,7 @@ class DCGAN(object):
         if self.testing:
             #self.batch_size = 10
             self.testingphase = '60'#'gt50'
-            self.sample_run_num = 99999999
+            #self.sample_run_num = 99999999
 
         self.test_batch_size = self.batch_size
         self.image_size = image_size
@@ -339,7 +339,12 @@ class DCGAN(object):
     def train(self, config):
         """Train DCGAN"""
         #data = glob(os.path.join("./data", config.dataset, "*.jpg"))
-        data = MultiPIE(LOAD_60_LABEL=LOAD_60_LABEL, GENERATE_MASK=USE_MASK, RANDOM_VERIFY=RANDOM_VERIFY, MIRROR_TO_ONE_SIDE = True, source = self.testingphase)
+        data = MultiPIE(LOAD_60_LABEL=LOAD_60_LABEL, 
+                        GENERATE_MASK=USE_MASK, 
+                        RANDOM_VERIFY=RANDOM_VERIFY, 
+                        MIRROR_TO_ONE_SIDE=True, 
+                        source=self.testingphase,
+                        testing=self.testing)
         #np.random.shuffle(data)
         config.sample_dir += '{:05d}'.format(random.randint(1,100000))
 
