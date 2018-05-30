@@ -428,6 +428,7 @@ class DCGAN(object):
                         self.evaluate(epoch, idx, batch_idxs, start_time, 'train',
                                        batch_images_with_code,  batch_eyel, batch_eyer, batch_nose, batch_mouth,
                                        batch_labels, batch_eyel_label, batch_eyer_label, batch_nose_label, batch_mouth_label, batch_iden);
+                    '''
                     if np.mod(counter, self.sample_interval) == self.sample_interval-1:
                         for i in range(self.sample_run_num):
                             print(i, end=' ')
@@ -505,6 +506,7 @@ class DCGAN(object):
                         print(err, tobePrint)
                         self.var_file.write(tobePrint)
                         self.var_file.flush()
+                    '''
                     if np.mod(counter, self.save_interval) == self.save_interval-1:
                         self.save(config.checkpoint_dir, counter)
         else:
