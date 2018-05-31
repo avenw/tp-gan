@@ -238,8 +238,9 @@ class DCGAN(object):
                 self.dv_loss += tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.G_pool5-self.label_pool5),1),1))
                 '''
                 # using cosine_distance to compute loss
-                self.dv_loss = (self.labelvector, self.Gvector)
-                self.dv_loss += tf.losses.cosine_distance(self.label_pool5, self.G_pool5)
+                self.dv_loss = tf.losses.cosine_distance(tf.nn.l2_normalize(self.labelvector, 0), tf.nn.l2_normalize(self.Gvector, 0), dim=0)
+                self.dv_loss += tf.losses.cosine_distance(tf.nn.l2_normalize(self.label_pool5, 0), tf.nn.l2_normalize(self.G_pool5, 0), dim=0)
+                #self.dv_loss += tf.losses.cosine_distance(self.label_pool5, self.G_pool5)
                 
                 self.logfile = 'loss_verify.txt'
                 #self.dv_sum = histogram_summary("dv_", self.Dv)
