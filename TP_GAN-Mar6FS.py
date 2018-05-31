@@ -104,7 +104,7 @@ class DCGAN(object):
         self.is_grayscale = (c_dim == 1)
         self.batch_size = batch_size
         self.sample_run_num = 15
-        self.testing = False
+        self.testing = True #False
         self.testingphase = 'FS'
         self.testimg = True
         if self.testing:
@@ -130,7 +130,8 @@ class DCGAN(object):
         self.DeepFacePath = 'DeepFace168.pickle'
         self.dataset_name = dataset_name
         self.checkpoint_dir = checkpoint_dir
-        self.loadDeepFace(self.DeepFacePath)
+        if not self.testing:
+            self.loadDeepFace(self.DeepFacePath)
         self.build_model()
 
     def build_model(self):
@@ -222,92 +223,95 @@ class DCGAN(object):
             self.D_, self.D_logits_ = self.discriminatorLocal(self.G, reuse=True)
         self.logfile = 'loss.txt'
 
-        if 'f' in MODE:
-            #self.verify_images_masked = tf.mul(self.verify_images, self.masks_binary)
-            #can not apply mask !!!
-            # self.Dv, self.Dv_logits = self.discriminatorVerify(self.labels, self.verify_images)
-            _,_,_,_, self.G_pool5, self.Gvector = self.FeatureExtractDeepFace(tf.reduce_mean(self.G, axis=3, keep_dims=True))
-            _,_,_,_, self.label_pool5, self.labelvector = self.FeatureExtractDeepFace(tf.reduce_mean(self.g_labels, axis=3, keep_dims=True), reuse=True)
-            _,_,_,_, _, self.samplevector = self.FeatureExtractDeepFace(tf.reduce_mean(self.sample_images_nocode, axis=3, keep_dims=True), reuse=True)
-            #self.Dv, self.Dv_logits = self.discriminatorClassify(self.Gvector)
-            #self.dv_loss = tf.reduce_sum(tf.nn.sparse_softmax_cross_entropy_with_logits(self.Dv_logits, self.verify_labels))
-            self.dv_loss = tf.reduce_mean(tf.abs(self.Gvector-self.labelvector))
-            self.dv_loss += tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.G_pool5-self.label_pool5),1),1))
-            self.logfile = 'loss_verify.txt'
-            #self.dv_sum = histogram_summary("dv_", self.Dv)
+        if not self.testing:
+            if 'f' in MODE:
+                #self.verify_images_masked = tf.mul(self.verify_images, self.masks_binary)
+                #can not apply mask !!!
+                # self.Dv, self.Dv_logits = self.discriminatorVerify(self.labels, self.verify_images)
+                _,_,_,_, self.G_pool5, self.Gvector = self.FeatureExtractDeepFace(tf.reduce_mean(self.G, axis=3, keep_dims=True))
+                _,_,_,_, self.label_pool5, self.labelvector = self.FeatureExtractDeepFace(tf.reduce_mean(self.g_labels, axis=3, keep_dims=True), reuse=True)
+                _,_,_,_, _, self.samplevector = self.FeatureExtractDeepFace(tf.reduce_mean(self.sample_images_nocode, axis=3, keep_dims=True), reuse=True)
+                #self.Dv, self.Dv_logits = self.discriminatorClassify(self.Gvector)
+                #self.dv_loss = tf.reduce_sum(tf.nn.sparse_softmax_cross_entropy_with_logits(self.Dv_logits, self.verify_labels))
+                
+                self.dv_loss = tf.reduce_mean(tf.abs(self.Gvector-self.labelvector))
+                self.dv_loss += tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.G_pool5-self.label_pool5),1),1))
 
-        # self.d__sum = histogram_summary("d_", self.D_)
-        # self.d_sum = histogram_summary("d", self.D)
-        # self.G_sum = image_summary("G", self.G)
+                self.logfile = 'loss_verify.txt'
+                #self.dv_sum = histogram_summary("dv_", self.Dv)
 
-        #basic loss
+            # self.d__sum = histogram_summary("d_", self.D_)
+            # self.d_sum = histogram_summary("d", self.D)
+            # self.G_sum = image_summary("G", self.G)
 
-        # self.d_loss_real = tf.reduce_mean(self.D_logits)
-        # self.d_loss_fake = -tf.reduce_mean(self.D_logits_)
-        # self.g_loss_adver = -tf.reduce_mean(self.D_logits_)
-        self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits, labels=tf.ones_like(self.D) * 0.9))
-        self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits_, labels=tf.zeros_like(self.D_)))
-        self.g_loss_adver = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits_, labels=tf.ones_like(self.D_) * 0.9))
+            #basic loss
 
-        #self.mark_regression_loss = tf.reduce_mean(tf.square(tf.abs(self.landmarklabels-self.Glandmark)))
-        #self.poseloss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(self.poselogits, self.poselabels))
-        self.idenloss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.identitylogits, labels=self.idenlabels))
+            # self.d_loss_real = tf.reduce_mean(self.D_logits)
+            # self.d_loss_fake = -tf.reduce_mean(self.D_logits_)
+            # self.g_loss_adver = -tf.reduce_mean(self.D_logits_)
+            self.d_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits, labels=tf.ones_like(self.D) * 0.9))
+            self.d_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits_, labels=tf.zeros_like(self.D_)))
+            self.g_loss_adver = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_logits_, labels=tf.ones_like(self.D_) * 0.9))
 
-        self.eyel_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_eyel - self.eyel_label), 1), 1))
-        self.eyer_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_eyer - self.eyer_label), 1), 1))
-        self.nose_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_nose - self.nose_label), 1), 1))
-        self.mouth_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_mouth - self.mouth_label), 1), 1))
-        #rotation L1 / L2 loss in g_loss
-        # one8 = tf.ones([1,8,4,1],tf.float32)
-        # mask8 = concat([one8, one8], 2)
-        # mask16 = tf.image.resize_nearest_neighbor(mask8, size=[16, 16])
-        # mask32 = tf.image.resize_nearest_neighbor(mask8, size=[32, 32])
-        # mask64 = tf.image.resize_nearest_neighbor(mask8, size=[64, 64])
-        # mask128 = tf.image.resize_nearest_neighbor(mask8, size=[128, 128])
-        #use L2 for 128, L1 for others. mask emphasize left side.
-        errL1 = tf.abs(self.G - self.g_labels) #* mask128
-        errL1_2 = tf.abs(self.G2 - self.g64_labels) #* mask64
-        errL1_3 = tf.abs(self.G3 - self.g32_labels) #* mask32
-        #errcheck8 = tf.abs(self.check_sel8 - self.g8_labels) #* mask8
-        #errcheck16 = tf.abs(self.check_sel16 - self.g16_labels) #* mask16
-        errcheck32 = tf.abs(self.check_sel32 - self.g32_labels) #* mask32
-        errcheck64 = tf.abs(self.check_sel64 - self.g64_labels) #* mask64
-        errcheck128 = tf.abs(self.check_sel128 - self.g_labels) #* mask128
+            #self.mark_regression_loss = tf.reduce_mean(tf.square(tf.abs(self.landmarklabels-self.Glandmark)))
+            #self.poseloss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(self.poselogits, self.poselabels))
+            self.idenloss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.identitylogits, labels=self.idenlabels))
 
-        self.weightedErrL1 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errL1, 1), 1))
-        self.symErrL1 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(symL1(#self.processor(self.G)
-            tf.nn.avg_pool(self.G, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-           ), 1), 1))
-        self.weightedErrL2 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errL1_2, 1), 1))
-        self.symErrL2 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(symL1(self.processor(self.G2)), 1), 1))
-        self.weightedErrL3 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errL1_3, 1), 1))
-        self.symErrL3 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(symL1(self.processor(self.G3, reuse=True)), 1), 1))
+            self.eyel_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_eyel - self.eyel_label), 1), 1))
+            self.eyer_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_eyer - self.eyer_label), 1), 1))
+            self.nose_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_nose - self.nose_label), 1), 1))
+            self.mouth_loss = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(tf.abs(self.c_mouth - self.mouth_label), 1), 1))
+            #rotation L1 / L2 loss in g_loss
+            # one8 = tf.ones([1,8,4,1],tf.float32)
+            # mask8 = concat([one8, one8], 2)
+            # mask16 = tf.image.resize_nearest_neighbor(mask8, size=[16, 16])
+            # mask32 = tf.image.resize_nearest_neighbor(mask8, size=[32, 32])
+            # mask64 = tf.image.resize_nearest_neighbor(mask8, size=[64, 64])
+            # mask128 = tf.image.resize_nearest_neighbor(mask8, size=[128, 128])
+            #use L2 for 128, L1 for others. mask emphasize left side.
+            errL1 = tf.abs(self.G - self.g_labels) #* mask128
+            errL1_2 = tf.abs(self.G2 - self.g64_labels) #* mask64
+            errL1_3 = tf.abs(self.G3 - self.g32_labels) #* mask32
+            #errcheck8 = tf.abs(self.check_sel8 - self.g8_labels) #* mask8
+            #errcheck16 = tf.abs(self.check_sel16 - self.g16_labels) #* mask16
+            errcheck32 = tf.abs(self.check_sel32 - self.g32_labels) #* mask32
+            errcheck64 = tf.abs(self.check_sel64 - self.g64_labels) #* mask64
+            errcheck128 = tf.abs(self.check_sel128 - self.g_labels) #* mask128
 
-        cond_L12 = tf.abs(tf.image.resize_bilinear(self.G, [64,64]) - tf.stop_gradient(self.G2))
-        #self.condErrL12 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(cond_L12, 1), 1))
-        #cond_L23 = tf.abs(tf.image.resize_bilinear(self.G2, [32,32]) - tf.stop_gradient(self.G3))
-        #self.condErrL23 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(cond_L23, 1), 1))
-        self.tv_loss = tf.reduce_mean(total_variation(self.G))
-        #self.weightedErr_check8 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errcheck8, 1), 1))
-        #self.weightedErr_check16 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errcheck16, 1), 1))
-        # self.weightedErr_check32 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errcheck32, 1), 1))
-        # self.weightedErr_check64 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errcheck64, 1), 1))
-        # self.weightedErr_check128 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errcheck128, 1), 1))
-        # mean = tf.reduce_mean(tf.reduce_mean(self.G, 1,keep_dims=True), 2, keep_dims=True)
-        # self.stddev = tf.reduce_mean(tf.squared_difference(self.G, mean))
+            self.weightedErrL1 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errL1, 1), 1))
+            self.symErrL1 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(symL1(#self.processor(self.G)
+                tf.nn.avg_pool(self.G, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+            ), 1), 1))
+            self.weightedErrL2 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errL1_2, 1), 1))
+            self.symErrL2 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(symL1(self.processor(self.G2)), 1), 1))
+            self.weightedErrL3 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errL1_3, 1), 1))
+            self.symErrL3 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(symL1(self.processor(self.G3, reuse=True)), 1), 1))
 
-        self.d_loss = self.d_loss_real + self.d_loss_fake
-        self.g_loss = L1_1_W * (self.weightedErrL1 + SYM_W * self.symErrL1) + L1_2_W * (self.weightedErrL2 + SYM_W * self.symErrL2) \
-                      + L1_3_W * (self.weightedErrL3 + SYM_W * self.symErrL3)
-        self.g_loss += BELTA_FEATURE * self.dv_loss + ALPHA_ADVER * self.g_loss_adver + IDEN_W * self.idenloss + self.tv_loss * TV_WEIGHT
+            cond_L12 = tf.abs(tf.image.resize_bilinear(self.G, [64,64]) - tf.stop_gradient(self.G2))
+            #self.condErrL12 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(cond_L12, 1), 1))
+            #cond_L23 = tf.abs(tf.image.resize_bilinear(self.G2, [32,32]) - tf.stop_gradient(self.G3))
+            #self.condErrL23 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(cond_L23, 1), 1))
+            self.tv_loss = tf.reduce_mean(total_variation(self.G))
+            #self.weightedErr_check8 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errcheck8, 1), 1))
+            #self.weightedErr_check16 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errcheck16, 1), 1))
+            # self.weightedErr_check32 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errcheck32, 1), 1))
+            # self.weightedErr_check64 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errcheck64, 1), 1))
+            # self.weightedErr_check128 = tf.reduce_mean(tf.reduce_sum(tf.reduce_sum(errcheck128, 1), 1))
+            # mean = tf.reduce_mean(tf.reduce_mean(self.G, 1,keep_dims=True), 2, keep_dims=True)
+            # self.stddev = tf.reduce_mean(tf.squared_difference(self.G, mean))
 
-        self.rot_loss = PART_W * (self.eyel_loss + self.eyer_loss + self.nose_loss + self.mouth_loss)
-        #self.sel_loss = self.weightedErr_check32 + self.weightedErr_check64 + self.weightedErr_check128
-        #self.g_loss += self.sel_loss
+            self.d_loss = self.d_loss_real + self.d_loss_fake
+            self.g_loss = L1_1_W * (self.weightedErrL1 + SYM_W * self.symErrL1) + L1_2_W * (self.weightedErrL2 + SYM_W * self.symErrL2) \
+                        + L1_3_W * (self.weightedErrL3 + SYM_W * self.symErrL3)
+            self.g_loss += BELTA_FEATURE * self.dv_loss + ALPHA_ADVER * self.g_loss_adver + IDEN_W * self.idenloss + self.tv_loss * TV_WEIGHT
+
+            self.rot_loss = PART_W * (self.eyel_loss + self.eyer_loss + self.nose_loss + self.mouth_loss)
+            #self.sel_loss = self.weightedErr_check32 + self.weightedErr_check64 + self.weightedErr_check128
+            #self.g_loss += self.sel_loss
 
         self.var_file = open('var_log.txt', mode='a')
         t_vars = [var for var in tf.trainable_variables() if 'FeatureExtractDeepFace' not in var.name \
-                                                                                    and 'processor' not in var.name]
+                                                                                        and 'processor' not in var.name]
         def isTargetVar(name, tokens):
             for token in tokens:
                 if token in name:
@@ -346,22 +350,23 @@ class DCGAN(object):
                         source=self.testingphase,
                         testing=self.testing)
         #np.random.shuffle(data)
-        config.sample_dir += '{:05d}'.format(random.randint(1,100000))
+        if not self.testing:
+            config.sample_dir += '{:05d}'.format(random.randint(1,100000))
 
-        d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-                          .minimize(self.d_loss, var_list=self.d_vars)
-        #clip_D = [p.assign(tf.clip_by_value(p, -CLIP_D, CLIP_D)) for p in self.d_vars]
+            d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+                            .minimize(self.d_loss, var_list=self.d_vars)
+            #clip_D = [p.assign(tf.clip_by_value(p, -CLIP_D, CLIP_D)) for p in self.d_vars]
 
-        g_dec_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-                           .minimize(self.g_loss, var_list=self.ed_vars)
-        #g_enc_optim = tf.train.AdamOptimizer(config.learning_rate * 0.001, beta1=config.beta1) \
-        #                  .minimize(self.g_loss, var_list=self.enc_vars)
-        # s_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-        #                   .minimize(self.sel_loss, var_list=self.se_vars)
-        #g_sel_dec_optim = tf.train.RMSPropOptimizer(config.learning_rate) \
-        #                 .minimize(self.g_loss + self.sel_loss + self.rot_loss, var_list=self.all_g_vars)
-        rot_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-                          .minimize(self.rot_loss, var_list=self.rot_vars)
+            g_dec_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+                            .minimize(self.g_loss, var_list=self.ed_vars)
+            #g_enc_optim = tf.train.AdamOptimizer(config.learning_rate * 0.001, beta1=config.beta1) \
+            #                  .minimize(self.g_loss, var_list=self.enc_vars)
+            # s_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+            #                   .minimize(self.sel_loss, var_list=self.se_vars)
+            #g_sel_dec_optim = tf.train.RMSPropOptimizer(config.learning_rate) \
+            #                 .minimize(self.g_loss + self.sel_loss + self.rot_loss, var_list=self.all_g_vars)
+            rot_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+                            .minimize(self.rot_loss, var_list=self.rot_vars)
 
         init_op = tf.global_variables_initializer()
         self.sess.run(init_op)
