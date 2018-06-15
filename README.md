@@ -32,6 +32,10 @@ Here are random examples of 10 testing image pairs for each degree.
 </p> 
 
 ### Note
+requirement:
+numpy
+scipy
+pillow
 
 It was initially written in Tensorflow 0.12. If you have implemented another version, I'll be happy to reference it here.
 
